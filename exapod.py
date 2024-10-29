@@ -1,7 +1,5 @@
-from numpy import array as arr, pi as π, cos, sin, ndarray as V, linspace
+from numpy import array as arr, pi as π, cos, sin, ndarray as V, linspace, roll, linalg
 import matplotlib.pyplot as plt
-import matplotlib.cm
-import numpy as np
 
 R = 0.05 # [m] radius of the 2 discs
 D = 0.01 # [m] distance between the pairs of ball bearings
@@ -32,7 +30,7 @@ def exapod(dx, dy, dz, drx, dry, drz, x1=X1, y1=Y1, z1=Z1, rx1=RX1, ry1=RY1, rz1
     disc = arr([[R*cos(α), R*sin(α), 0.0] for α in linspace(0, 2*π, N)]) # reference position of the disc
     names = ['A','B','C','D','E','F'] # names of the balls/rods
     
-    disc0, balls0, pnames0 = [np.roll(rototranslation(v,X0,Y0,Z0,RX0,RY0,RZ0),-1,axis=0) for v in [disc, balls, pnames]] # bottom disc at rest
+    disc0, balls0, pnames0 = [roll(rototranslation(v,X0,Y0,Z0,RX0,RY0,RZ0),-1,axis=0) for v in [disc, balls, pnames]] # bottom disc at rest
     disc1, balls1, pnames1 = [rototranslation(v,x1,y1,z1,RX1,RY1,RZ1) for v in [disc, balls, pnames]] # top disc at rest
     disc2, balls2, pnames2 = [rototranslation(v, x1+dx, y1+dy, z1+dz, rx1+drx, ry1+dry, rz1+drz) for v in [disc, balls, pnames]] # top disc moved
 
@@ -45,8 +43,8 @@ def exapod(dx, dy, dz, drx, dry, drz, x1=X1, y1=Y1, z1=Z1, rx1=RX1, ry1=RY1, rz1
     print()
 
     # rods lengths
-    lengths1 = np.linalg.norm(balls1-balls0, axis=1) # [mm]
-    lengths2 = np.linalg.norm(balls2-balls0, axis=1) # [mm]
+    lengths1 = linalg.norm(balls1-balls0, axis=1) # [mm]
+    lengths2 = linalg.norm(balls2-balls0, axis=1) # [mm]
     for i in range(6): # print stats for each rod
         δ = lengths2[i]-lengths1[i]
         print(f"rod {names[i]}: [{lengths1[i]:.4f} -> {lengths2[i]:.4f}] [Δ{names[i]} = {δ:+.4f}] [turns_{names[i]} = {δ/THREAD_STEP:+.1f}]")
@@ -61,7 +59,7 @@ def exapod(dx, dy, dz, drx, dry, drz, x1=X1, y1=Y1, z1=Z1, rx1=RX1, ry1=RY1, rz1
     #define colormap 
     cmap = plt.get_cmap('plasma')
     c0, c1 = 0.0, 0.7
-    cols = cmap(np.linspace(c1, c0, NC)) # colors
+    cols = cmap(linspace(c1, c0, NC)) # colors
     α = 0.3
 
     ax.scatter(balls0[:,0], balls0[:,1], balls0[:,2], color=cmap(c0), s=100) # bottom disc
@@ -106,7 +104,6 @@ def exapod(dx, dy, dz, drx, dry, drz, x1=X1, y1=Y1, z1=Z1, rx1=RX1, ry1=RY1, rz1
 # set up argparser to get the values of dx, dy, dz, drx, dry, drz, x1, y1, z1, rx1, ry1, rz1
 import argparse
 if __name__ == "__main__":
-
     # examples of how to call the script: 
     # python exapod.py -dx 0.03 -dy 0.01 -dz 0.008 -drx 0.0 -dry -0.157 -drz 0.0 -x1 0.0 -y1 0.0 -z1 0.08 -rx1 0.0 -ry1 0.0 -rz1 1.047
     # python exapod.py -dx 0.03 -dy 0.01 -dz 0.008 -dry -0.157 -z1 0.08 -rz1 1.047
