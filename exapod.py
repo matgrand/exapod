@@ -8,7 +8,7 @@ H0 = 0.08 # [m] height of the column at "rest"
 THREAD_STEP = 0.001 # [m]/[turn] thread pitch of the rods (1mm/turn)
 
 # rest positions and orientations of the bottom and top discs
-X0, Y0, Z0, RX0, RY0, RZ0, = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 
+X0, Y0, Z0, RX0, RY0, RZ0 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 
 X1, Y1, Z1, RX1, RY1, RZ1 = 0.0, 0.0, H0, 0.0, 0.0, π/3
 
 def rototranslation(v:V, dx=0.0, dy=0.0, dz=0.0, rx=0.0, ry=0.0, rz=0.0) -> V:
@@ -31,7 +31,7 @@ def exapod(dx, dy, dz, drx, dry, drz, x1=X1, y1=Y1, z1=Z1, rx1=RX1, ry1=RY1, rz1
     names = ['A','B','C','D','E','F'] # names of the balls/rods
     
     disc0, balls0, pnames0 = [roll(rototranslation(v,X0,Y0,Z0,RX0,RY0,RZ0),-1,axis=0) for v in [disc, balls, pnames]] # bottom disc at rest
-    disc1, balls1, pnames1 = [rototranslation(v,x1,y1,z1,RX1,RY1,RZ1) for v in [disc, balls, pnames]] # top disc at rest
+    disc1, balls1, pnames1 = [rototranslation(v,x1,y1,z1,rx1,ry1,RZ1) for v in [disc, balls, pnames]] # top disc at rest
     disc2, balls2, pnames2 = [rototranslation(v, x1+dx, y1+dy, z1+dz, rx1+drx, ry1+dry, rz1+drz) for v in [disc, balls, pnames]] # top disc moved
 
 
@@ -99,13 +99,14 @@ def exapod(dx, dy, dz, drx, dry, drz, x1=X1, y1=Y1, z1=Z1, rx1=RX1, ry1=RY1, rz1
     ax.set_zlim([0, 0.12])
 
     ax.view_init(25, -49) # set camera orientation to 25, -49 0, to match the image in the picture
+    # plt.savefig('exapod.png')
     plt.show()
 
 # set up argparser to get the values of dx, dy, dz, drx, dry, drz, x1, y1, z1, rx1, ry1, rz1
 import argparse
 if __name__ == "__main__":
     # examples of how to call the script: 
-    # python exapod.py -dx 0.03 -dy 0.01 -dz 0.008 -drx 0.0 -dry -0.157 -drz 0.0 -x1 0.0 -y1 0.0 -z1 0.08 -rx1 0.0 -ry1 0.0 -rz1 1.047
+    # python exapod.py -dx 0.03 -dy 0.01 -dz 0.008 -drx 0.03 -dry -0.157 -drz 0.0 -x1 -0.01 -y1 0.0 -z1 0.08 -rx1 0.09 -ry1 0.076 -rz1 1.047
     # python exapod.py -dx 0.03 -dy 0.01 -dz 0.008 -dry -0.157 -z1 0.08 -rz1 1.047
     # python exapod.py -dx=0.03 -dy=0.01 -dz=0.008 -drx=0.0 -dry=-0.157 -drz=0.0 -x1=0.0 -y1=0.0 -z1=0.08 -rx1=0.0 -ry1=0.0 -rz1=1.047
     # python exapod.py -dx=0.03 -dy=0.01 -dz=0.008 -dry=-0.157 -z1=0.08 -rz1=1.047
