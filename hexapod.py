@@ -318,11 +318,6 @@ def plot_constraint_disks(ax):
 
 
 if __name__ == '__main__':
-    # examples of how to call the script: 
-    # python hexapod.py -rx 20 -ry 0
-    # python hexapod.py -d 330 285 200 200 285 300
-    # python hexapod.py -rx 20 -y -40
-
     instructions = '''
     Hexapod:
      set [x, y, z, rx, ry, rz] (or a subset of them) to get the 6 arm extensions,
@@ -343,8 +338,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', type=float, help='list of 6 arm extensions [mm] -> "-d A1 A2, C1, C2, B1, B2"', default=None, nargs=6, required=False)
     args = parser.parse_args()
 
-    print(f'd: {args.d}')
-
     if args.d is None: # from rotation to ARM EXTENSIONS
         r = np.deg2rad(np.array([args.rx, args.ry, args.rz]))
         t = np.array([args.x, args.y, args.z])
@@ -359,8 +352,7 @@ if __name__ == '__main__':
         assert error < 1e-1, f'UNFEASIBLE EXTENSIONS: error too large: {norm(d2 - d)}'
         d = d2 # use the consistent value
 
-
-    fig = plt.figure(figsize=(12, 12))
+    fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
     α_rest = 0.2
 
@@ -387,8 +379,8 @@ if __name__ == '__main__':
     # check that p2 is inside the D2 disk
     inside2 = np.all(in2Dpoly(p2[:,0:2], p_c2[:,0:2]))
     inside3 = np.all(in2Dpoly(p3[:,0:2], p_c3[:,0:2]))
-    if not inside2: d_min2 = -d_min2
-    if not inside3: d_min3 = -d_min3
+    if not inside2: d_min2 = 0
+    if not inside3: d_min3 = 0
     
     # line connecting the closest points
     pm2a, pm2b = p2[amin1_2], p_c2[amin2_2]
@@ -402,7 +394,7 @@ if __name__ == '__main__':
     title += f'RX: {np.rad2deg(r[0]):.1f} [deg], RY: {np.rad2deg(r[1]):.1f} [deg], RZ: {np.rad2deg(r[2]):.1f} [deg] \n'
     title += f'A1: {d[0]:.1f} [mm], A2: {d[1]:.1f} [mm] \nC1: {d[2]:.1f} [mm], C2: {d[3]:.1f} [mm] \nB1: {d[4]:.1f} [mm], B2: {d[5]:.1f} [mm]\n'
     title += f'Disk D2 {"TOUCHING" if not inside2 else ""}: {d_min2:.1f} [mm], Disk D3 {"TOUCHING" if not inside3 else ""}: {d_min3:.1f} [mm]' 
-    ax.set_title(title, fontsize=16, weight='bold')
+    ax.set_title(title, fontsize=12, weight='bold')
     plt.tight_layout()
     print(title)
     # Show the plot and close on any keypress
@@ -410,51 +402,3 @@ if __name__ == '__main__':
         plt.close(event.canvas.figure)
     fig.canvas.mpl_connect('key_press_event', on_key)
     plt.show()
-
-
-    # # show some random rotations
-    # for _ in range(5):
-    #     random_r = np.random.uniform(-0.25, 0.25, size=3)
-    #     random_t = np.random.uniform(-20, 20, size=3)
-    #     d = rt2d(random_r, random_t)
-    #     r2, t2 = d2rt(d)
-
-    #     fig = plt.figure(figsize=(12, 12))
-    #     ax = fig.add_subplot(111, projection='3d')
-    #     ax.view_init(elev=30, azim=210)
-    #     α_rest = 0.2
-
-
-    #     plot_origin(ax)
-    #     # plot_pipe(ax, α_ratio=α_rest)
-    #     plot_pipe(ax, r=r2, t=t2)
-    #     # plot_hexa(ax, α_ratio=α_rest)
-    #     plot_hexa(ax, r=r2, t=t2)
-    #     plot_constraint_disks(ax)
-
-    #     x,y,z,R,rx,ry,rz = D1
-    #     center = rt(np.array([x, y, z]), r=r2, t=t2)
-    #     z2, z3 = D2[2], D3[2]
-    #     p2,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r2, plane_z=z2)
-    #     p3,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r2, plane_z=z3)
-    #     #plot the center of D2 and D3
-    #     c2, c3, r2, r3 = D2[0:3], D3[0:3], D2[3], D3[3]
-    #     θs = np.linspace(0, 2*π, 100)
-    #     p_c2 = np.array([c2[0] + r2*cos(θs), c2[1] + r2*sin(θs), np.full(θs.shape, c2[2])]).T
-    #     p_c3 = np.array([c3[0] + r3*cos(θs), c3[1] + r3*sin(θs), np.full(θs.shape, c3[2])]).T
-    #     d_min2, amin1_2, amin2_2 = get_min_dist(p2, p_c2)
-    #     d_min3, amin1_3, amin2_3 = get_min_dist(p3, p_c3)
-        
-    #     pm2a, pm2b = p2[amin1_2], p_c2[amin2_2]
-    #     pm3a, pm3b = p3[amin1_3], p_c3[amin2_3]
-    #     ax.plot([pm2a[0], pm2b[0]], [pm2a[1], pm2b[1]], [pm2a[2], pm2b[2]], 'r', linewidth=3, marker='o', markersize=4)
-    #     ax.plot([pm3a[0], pm3b[0]], [pm3a[1], pm3b[1]], [pm3a[2], pm3b[2]], 'r', linewidth=3, marker='o', markersize=4)
-
-    #     # print(f'min dist -> D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]')
-    #     title = f'A1: {d[0]:.1f}[mm], A2: {d[1]:.1f}[mm] \nC1: {d[2]:.1f}[mm], C2: {d[3]:.1f}[mm] \nB1: {d[4]:.1f}[mm], B2: {d[5]:.1f}[mm]\nDist D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]'
-    #     ax.set_title(title, fontsize=16, weight='bold')
-    #     plt.tight_layout()
-    #     plt.show()
-
-    #     print(title)
-        
