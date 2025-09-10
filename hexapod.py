@@ -28,6 +28,7 @@ from numpy import pi as π, cos, sin, exp, abs, sum
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from numpy.linalg import norm
+import argparse
 
 np.set_printoptions(precision=4, suppress=True)
 
@@ -164,6 +165,23 @@ def get_min_dist(p1, p2):
                 argmin1, argmin2 = i, j
     return dmin, argmin1, argmin2
 
+def in2Dpoly(pts, poly):
+    pts_shape = pts.shape
+    assert pts_shape[-1] == 2, f"pts.shape = {pts_shape}, should be (whatever, 2)"
+    pts = pts.reshape(-1, 2)  # ensure pts is a 2D array of shape (n, 2)
+    # Polygon edges: (xi, yi) to (xj, yj)
+    xi, yi = poly[:, 0], poly[:, 1]
+    xj, yj = np.roll(xi, -1), np.roll(yi, -1)
+    px = pts[:, 0][:, np.newaxis]
+    py = pts[:, 1][:, np.newaxis]
+    # Check if point is between yi and yj, and if it is to the left of the edge
+    intersect = ((yi <= py) & (py < yj)) | ((yj <= py) & (py < yi))
+    slope = (xj - xi) / (yj - yi + 1e-12)  # avoid division by zero
+    xints = xi + (py - yi) * slope
+    crosses = px < xints
+    inside = np.sum(intersect & crosses, axis=1) % 2 == 1
+    return inside.reshape(pts_shape[:-1])  # reshape back to original shape
+
 # plotting functions
 def plot_3d_poly(ax, vertices, color='cyan', alpha=0.5, **kwargs):
     poly = Poly3DCollection([vertices], color=color, alpha=alpha, **kwargs)
@@ -199,8 +217,8 @@ def plot_origin(ax):
 def plot_pipe(ax, r=np.array([0.0, 0.0, 0.0]), t=np.array([0.0, 0.0, 0.0]), d=D1, α_ratio=1.0):
     na = 50
     nz = 10
-    alpha_intersect = 0.3
-    alpha_edges = 0.9
+    alpha_intersect = 0.2
+    alpha_edges = 0.6
     θs = np.linspace(0, 2*π, na)
     zs = np.linspace(200, -800, nz)
     x,y,z,R,rx,ry,rz = d
@@ -217,27 +235,28 @@ def plot_pipe(ax, r=np.array([0.0, 0.0, 0.0]), t=np.array([0.0, 0.0, 0.0]), d=D1
     p = rt(p, r=r, t=t)
 
     # cylinder surface
-    ax.plot_surface(p[:,:,0], p[:,:,1], p[:,:,2], color='b', alpha=0.2*α_ratio, edgecolor='none')
+    ax.plot_surface(p[:,:,0], p[:,:,1], p[:,:,2], color='gray', alpha=0.2*α_ratio, edgecolor='none')
 
     if α_ratio >= 1.0:
-        # plot_3d_poly(ax, p[:,0,:], color='b', alpha=alpha_intersect*α_ratio)
+        # x,y,z,R,rx,ry,rz = D1
+        center = rt(np.array([x, y, z]), r=r, t=t)
+        line_style = ':'
         #project the first disk onnto the D2 and D3 planes
         z2, z3, z4 = D2[2], D3[2], HT
-        center = np.mean(p[:,0,:], axis=0)
         p2,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r, plane_z=z2)
         p3,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r, plane_z=z3)
         p4,_,_ = project_circle_onto_plane(center=center_rest, radius=R, rotation_angles=np.array([rx, ry, rz]), plane_z=z4)
-        p4 = rt(p4, r=r) # apply hexapod rototranslation to p4
-        ax.plot(p2[:,0], p2[:,1], p2[:,2], 'r--', alpha=alpha_edges*α_ratio)
-        ax.plot(p3[:,0], p3[:,1], p3[:,2], 'r--', alpha=alpha_edges*α_ratio)
-        ax.plot(p4[:,0], p4[:,1], p4[:,2], '--', color='orange', alpha=alpha_edges*α_ratio)
-        # plot_3d_poly(ax, p2, color='b', alpha=alpha_intersect*α_ratio)
-        # plot_3d_poly(ax, p3, color='b', alpha=alpha_intersect*α_ratio)
-        # plot_3d_poly(ax, p4, color='orange', alpha=alpha_intersect*α_ratio)
+        p4 = rt(p4, r=r, t=t) # apply hexapod rototranslation to p4
+        ax.plot(p2[:,0], p2[:,1], p2[:,2], f'r{line_style}', alpha=alpha_edges*α_ratio)
+        ax.plot(p3[:,0], p3[:,1], p3[:,2], f'r{line_style}', alpha=alpha_edges*α_ratio)
+        ax.plot(p4[:,0], p4[:,1], p4[:,2], f'{line_style}', color='orange', alpha=alpha_edges*α_ratio)
+        plot_3d_poly(ax, p2, color='r', alpha=alpha_intersect*α_ratio)
+        plot_3d_poly(ax, p3, color='r', alpha=alpha_intersect*α_ratio)
+        plot_3d_poly(ax, p4, color='orange', alpha=alpha_intersect*α_ratio)
         #project onto the base plane
         p0,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r, plane_z=0)
-        ax.plot(p0[:,0], p0[:,1], p0[:,2], '--', color='gray', alpha=alpha_edges*α_ratio)
-        # plot_3d_poly(ax, p0, color='gray', alpha=alpha_intersect*α_ratio)
+        ax.plot(p0[:,0], p0[:,1], p0[:,2], f'{line_style}', color='gray', alpha=alpha_edges*α_ratio)
+        plot_3d_poly(ax, p0, color='gray', alpha=alpha_intersect*α_ratio)
 
     return ax
 
@@ -299,49 +318,143 @@ def plot_constraint_disks(ax):
 
 
 if __name__ == '__main__':
+    # examples of how to call the script: 
+    # python hexapod.py -rx 20 -ry 0
+    # python hexapod.py -d 330 285 200 200 285 300
+    # python hexapod.py -rx 20 -y -40
 
-    # show some random rotations
-    for _ in range(5):
-        random_r = np.random.uniform(-0.25, 0.25, size=3)
-        random_t = np.random.uniform(-20, 20, size=3)
-        d = rt2d(random_r, random_t)
-        r2, t2 = d2rt(d)
+    instructions = '''
+    Hexapod:
+     set [x, y, z, rx, ry, rz] (or a subset of them) to get the 6 arm extensions,
+     or set the 6 arm extensions [-d] (all of them) to get [x, y, z, rx, ry, rz]
+    Examples:
+     python hexapod.py -rx 20 -ry 0
+     python hexapod.py -d 330 285 200 200 285 300
+     python hexapod.py -rx 20 -y -40
+    '''
 
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(111, projection='3d')
-        α_rest = 0.2
+    parser = argparse.ArgumentParser(description=instructions, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-x', type=float, help='displacement along x [mm] -> -x 20', default=0.0, required=False)
+    parser.add_argument('-y', type=float, help='displacement along y [mm] -> -y -40', default=0.0, required=False)
+    parser.add_argument('-z', type=float, help='displacement along z [mm] -> -z 42', default=0.0, required=False)
+    parser.add_argument('-rx', type=float, help='delta rotation around x [deg] -> -rx 20', default=0.0, required=False)
+    parser.add_argument('-ry', type=float, help='delta rotation around y [deg] -> -ry 0', default=0.0, required=False)
+    parser.add_argument('-rz', type=float, help='delta rotation around z [deg] -> -rz 0', default=0.0, required=False)
+    parser.add_argument('-d', type=float, help='list of 6 arm extensions [mm] -> "-d A1 A2, C1, C2, B1, B2"', default=None, nargs=6, required=False)
+    args = parser.parse_args()
+
+    print(f'd: {args.d}')
+
+    if args.d is None: # from rotation to ARM EXTENSIONS
+        r = np.deg2rad(np.array([args.rx, args.ry, args.rz]))
+        t = np.array([args.x, args.y, args.z])
+        d = rt2d(r, t)
+    else: # from ARM EXTENSIONS to rotation
+        d = np.array([float(x) for x in args.d])
+        r, t = d2rt(d)
+        # check the conversion is consistent
+        d2 = rt2d(r, t)
+        error = norm(d2 - d)
+        print(f'd error: {error:.3f} [mm]')
+        assert error < 1e-1, f'UNFEASIBLE EXTENSIONS: error too large: {norm(d2 - d)}'
+        d = d2 # use the consistent value
 
 
-        plot_origin(ax)
-        plot_pipe(ax, α_ratio=α_rest)
-        plot_pipe(ax, r=r2, t=t2)
-        plot_hexa(ax, α_ratio=α_rest)
-        plot_hexa(ax, r=r2, t=t2)
-        plot_constraint_disks(ax)
+    fig = plt.figure(figsize=(12, 12))
+    ax = fig.add_subplot(111, projection='3d')
+    α_rest = 0.2
 
-        x,y,z,R,rx,ry,rz = D1
-        center = rt(np.array([x, y, z]), r=r2, t=t2)
-        z2, z3 = D2[2], D3[2]
-        p2,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r2, plane_z=z2)
-        p3,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r2, plane_z=z3)
-        #plot the center of D2 and D3
-        c2, c3, r2, r3 = D2[0:3], D3[0:3], D2[3], D3[3]
-        θs = np.linspace(0, 2*π, 100)
-        p_c2 = np.array([c2[0] + r2*cos(θs), c2[1] + r2*sin(θs), np.full(θs.shape, c2[2])]).T
-        p_c3 = np.array([c3[0] + r3*cos(θs), c3[1] + r3*sin(θs), np.full(θs.shape, c3[2])]).T
-        d_min2, amin1_2, amin2_2 = get_min_dist(p2, p_c2)
-        d_min3, amin1_3, amin2_3 = get_min_dist(p3, p_c3)
+    plot_origin(ax)
+    plot_pipe(ax, α_ratio=α_rest)
+    plot_pipe(ax, r=r, t=t)
+    plot_hexa(ax, α_ratio=α_rest)
+    plot_hexa(ax, r=r, t=t)
+    plot_constraint_disks(ax)
+
+    x,y,z,R,rx,ry,rz = D1
+    center = rt(np.array([x, y, z]), r=r, t=t)
+    z2, z3 = D2[2], D3[2]
+    p2,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r, plane_z=z2)
+    p3,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r, plane_z=z3)
+    #plot the center of D2 and D3
+    c2, c3, r2, r3 = D2[0:3], D3[0:3], D2[3], D3[3]
+    θs = np.linspace(0, 2*π, 100)
+    p_c2 = np.array([c2[0] + r2*cos(θs), c2[1] + r2*sin(θs), np.full(θs.shape, c2[2])]).T
+    p_c3 = np.array([c3[0] + r3*cos(θs), c3[1] + r3*sin(θs), np.full(θs.shape, c3[2])]).T
+    d_min2, amin1_2, amin2_2 = get_min_dist(p2, p_c2)
+    d_min3, amin1_3, amin2_3 = get_min_dist(p3, p_c3)
+
+    # check that p2 is inside the D2 disk
+    inside2 = np.all(in2Dpoly(p2[:,0:2], p_c2[:,0:2]))
+    inside3 = np.all(in2Dpoly(p3[:,0:2], p_c3[:,0:2]))
+    if not inside2: d_min2 = -d_min2
+    if not inside3: d_min3 = -d_min3
+    
+    # line connecting the closest points
+    pm2a, pm2b = p2[amin1_2], p_c2[amin2_2]
+    pm3a, pm3b = p3[amin1_3], p_c3[amin2_3]
+    ax.plot([pm2a[0], pm2b[0]], [pm2a[1], pm2b[1]], [pm2a[2], pm2b[2]], 'r', linewidth=3, marker='o', markersize=4)
+    ax.plot([pm3a[0], pm3b[0]], [pm3a[1], pm3b[1]], [pm3a[2], pm3b[2]], 'r', linewidth=3, marker='o', markersize=4)
+
+    # print(f'min dist -> D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]')
+    title = ''
+    title += f'HEXAPOD\nX: {t[0]:.1f} [mm], Y: {t[1]:.1f} [mm], Z: {t[2]:.1f} [mm] \n'
+    title += f'RX: {np.rad2deg(r[0]):.1f} [deg], RY: {np.rad2deg(r[1]):.1f} [deg], RZ: {np.rad2deg(r[2]):.1f} [deg] \n'
+    title += f'A1: {d[0]:.1f} [mm], A2: {d[1]:.1f} [mm] \nC1: {d[2]:.1f} [mm], C2: {d[3]:.1f} [mm] \nB1: {d[4]:.1f} [mm], B2: {d[5]:.1f} [mm]\n'
+    title += f'Disk D2 {"TOUCHING" if not inside2 else ""}: {d_min2:.1f} [mm], Disk D3 {"TOUCHING" if not inside3 else ""}: {d_min3:.1f} [mm]' 
+    ax.set_title(title, fontsize=16, weight='bold')
+    plt.tight_layout()
+    print(title)
+    # Show the plot and close on any keypress
+    def on_key(event):
+        plt.close(event.canvas.figure)
+    fig.canvas.mpl_connect('key_press_event', on_key)
+    plt.show()
+
+
+    # # show some random rotations
+    # for _ in range(5):
+    #     random_r = np.random.uniform(-0.25, 0.25, size=3)
+    #     random_t = np.random.uniform(-20, 20, size=3)
+    #     d = rt2d(random_r, random_t)
+    #     r2, t2 = d2rt(d)
+
+    #     fig = plt.figure(figsize=(12, 12))
+    #     ax = fig.add_subplot(111, projection='3d')
+    #     ax.view_init(elev=30, azim=210)
+    #     α_rest = 0.2
+
+
+    #     plot_origin(ax)
+    #     # plot_pipe(ax, α_ratio=α_rest)
+    #     plot_pipe(ax, r=r2, t=t2)
+    #     # plot_hexa(ax, α_ratio=α_rest)
+    #     plot_hexa(ax, r=r2, t=t2)
+    #     plot_constraint_disks(ax)
+
+    #     x,y,z,R,rx,ry,rz = D1
+    #     center = rt(np.array([x, y, z]), r=r2, t=t2)
+    #     z2, z3 = D2[2], D3[2]
+    #     p2,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r2, plane_z=z2)
+    #     p3,_,_ = project_circle_onto_plane(center=center, radius=R, rotation_angles=np.array([rx, ry, rz])+r2, plane_z=z3)
+    #     #plot the center of D2 and D3
+    #     c2, c3, r2, r3 = D2[0:3], D3[0:3], D2[3], D3[3]
+    #     θs = np.linspace(0, 2*π, 100)
+    #     p_c2 = np.array([c2[0] + r2*cos(θs), c2[1] + r2*sin(θs), np.full(θs.shape, c2[2])]).T
+    #     p_c3 = np.array([c3[0] + r3*cos(θs), c3[1] + r3*sin(θs), np.full(θs.shape, c3[2])]).T
+    #     d_min2, amin1_2, amin2_2 = get_min_dist(p2, p_c2)
+    #     d_min3, amin1_3, amin2_3 = get_min_dist(p3, p_c3)
         
-        pm2a, pm2b = p2[amin1_2], p_c2[amin2_2]
-        pm3a, pm3b = p3[amin1_3], p_c3[amin2_3]
-        ax.plot([pm2a[0], pm2b[0]], [pm2a[1], pm2b[1]], [pm2a[2], pm2b[2]], 'r', linewidth=3, marker='o', markersize=4)
-        ax.plot([pm3a[0], pm3b[0]], [pm3a[1], pm3b[1]], [pm3a[2], pm3b[2]], 'r', linewidth=3, marker='o', markersize=4)
+    #     pm2a, pm2b = p2[amin1_2], p_c2[amin2_2]
+    #     pm3a, pm3b = p3[amin1_3], p_c3[amin2_3]
+    #     ax.plot([pm2a[0], pm2b[0]], [pm2a[1], pm2b[1]], [pm2a[2], pm2b[2]], 'r', linewidth=3, marker='o', markersize=4)
+    #     ax.plot([pm3a[0], pm3b[0]], [pm3a[1], pm3b[1]], [pm3a[2], pm3b[2]], 'r', linewidth=3, marker='o', markersize=4)
 
-        # print(f'min dist -> D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]')
-        title = f'A1: {d[0]:.1f}[mm], A2: {d[1]:.1f}[mm] \nC1: {d[2]:.1f}[mm], C2: {d[3]:.1f}[mm] \nB1: {d[4]:.1f}[mm], B2: {d[5]:.1f}[mm]\nDist D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]'
-        ax.set_title(title, fontsize=16, weight='bold')
-        plt.tight_layout()
-        plt.show()
+    #     # print(f'min dist -> D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]')
+    #     title = f'A1: {d[0]:.1f}[mm], A2: {d[1]:.1f}[mm] \nC1: {d[2]:.1f}[mm], C2: {d[3]:.1f}[mm] \nB1: {d[4]:.1f}[mm], B2: {d[5]:.1f}[mm]\nDist D2: {d_min2:.1f} [mm], D3: {d_min3:.1f} [mm]'
+    #     ax.set_title(title, fontsize=16, weight='bold')
+    #     plt.tight_layout()
+    #     plt.show()
 
-        print(title)
+    #     print(title)
         
